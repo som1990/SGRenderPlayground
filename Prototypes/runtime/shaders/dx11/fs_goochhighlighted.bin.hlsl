@@ -1,5 +1,5 @@
 // shaderc command line:
-// ..\3rdParty\bgfx.cmake\cmake\bgfx\Debug\shaderc.exe -f D:/Work/SGRenderPlayground/src/01-GoochHighlighted/fs_goochhighlighted.sc -i D:/Work/SGRenderPlayground/3rdParty/bgfx.cmake/bgfx/src -o D:/Work/SGRenderPlayground/src/runtime/shaders/dx11/fs_goochhighlighted.bin --platform windows --type fragment --debug --disasm --profile s_5_0 -O 3
+// ..\3rdParty\bgfx.cmake\cmake\bgfx\Debug\shaderc.exe -f D:/Work/SGRenderPlayground/Prototypes/01-GoochHighlighted/fs_goochhighlighted.sc -i D:/Work/SGRenderPlayground/3rdParty/bgfx.cmake/bgfx/Prototypes -o D:/Work/SGRenderPlayground/Prototypes/runtime/shaders/dx11/fs_goochhighlighted.bin --platform windows --type fragment --debug --disasm --profile s_5_0 -O 3
 
 float intBitsToFloat(int _x) { return asfloat(_x); }
 float2 intBitsToFloat(uint2 _x) { return asfloat(_x); }

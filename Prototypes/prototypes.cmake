@@ -176,13 +176,13 @@ function(add_bgfx_shader FILE FOLDER)
 	endif()
 
 	if(NOT "${TYPE}" STREQUAL "")
-		set(COMMON FILE ${FILE} ${TYPE} INCLUDES ${BGFX_DIR}/src)
+		set(COMMON FILE ${FILE} ${TYPE} INCLUDES ${BGFX_DIR}/Prototypes)
 		set(OUTPUTS "")
 		set(OUTPUTS_PRETTY "")
 
 		if(WIN32)
 			# dx11
-			set(DX11_OUTPUT ${SGRENDER_DIR}/src/runtime/shaders/dx11/${FILENAME}.bin)
+			set(DX11_OUTPUT ${SGRENDER_DIR}/Prototypes/runtime/shaders/dx11/${FILENAME}.bin)
 			if(NOT "${TYPE}" STREQUAL "COMPUTE")
 				_bgfx_shaderc_parse(
 					DX11 ${COMMON} WINDOWS
@@ -208,14 +208,14 @@ function(add_bgfx_shader FILE FOLDER)
 
 		# essl
 		if(NOT "${TYPE}" STREQUAL "COMPUTE")
-			set(ESSL_OUTPUT ${SGRENDER_DIR}/src/runtime/shaders/essl/${FILENAME}.bin)
+			set(ESSL_OUTPUT ${SGRENDER_DIR}/Prototypes/runtime/shaders/essl/${FILENAME}.bin)
 			_bgfx_shaderc_parse(ESSL ${COMMON} ANDROID PROFILE 100_es OUTPUT ${ESSL_OUTPUT})
 			list(APPEND OUTPUTS "ESSL")
 			set(OUTPUTS_PRETTY "${OUTPUTS_PRETTY}ESSL, ")
 		endif()
 
 		# glsl
-		set(GLSL_OUTPUT ${SGRENDER_DIR}/src/runtime/shaders/glsl/${FILENAME}.bin)
+		set(GLSL_OUTPUT ${SGRENDER_DIR}/Prototypes/runtime/shaders/glsl/${FILENAME}.bin)
 		if(NOT "${TYPE}" STREQUAL "COMPUTE")
 			_bgfx_shaderc_parse(GLSL ${COMMON} LINUX PROFILE 140 OUTPUT ${GLSL_OUTPUT})
 		else()
@@ -226,7 +226,7 @@ function(add_bgfx_shader FILE FOLDER)
 
 		# spirv
 		if(NOT "${TYPE}" STREQUAL "COMPUTE")
-			set(SPIRV_OUTPUT ${SGRENDER_DIR}/src/runtime/shaders/spirv/${FILENAME}.bin)
+			set(SPIRV_OUTPUT ${SGRENDER_DIR}/Prototypes/runtime/shaders/spirv/${FILENAME}.bin)
 			_bgfx_shaderc_parse(SPIRV ${COMMON} LINUX PROFILE spirv OUTPUT ${SPIRV_OUTPUT})
 			list(APPEND OUTPUTS "SPIRV")
 			set(OUTPUTS_PRETTY "${OUTPUTS_PRETTY}SPIRV")
@@ -241,7 +241,7 @@ function(add_bgfx_shader FILE FOLDER)
 			file(MAKE_DIRECTORY ${OUT_DIR})
 		endforeach()
 
-		file(RELATIVE_PATH PRINT_NAME ${SGRENDER_DIR}/src ${FILE})
+		file(RELATIVE_PATH PRINT_NAME ${SGRENDER_DIR}/Prototypes ${FILE})
 		add_custom_command(
 			MAIN_DEPENDENCY ${FILE} OUTPUT ${OUTPUT_FILES} ${COMMANDS}
 			COMMENT "Compiling shader ${PRINT_NAME} for ${OUTPUTS_PRETTY}"
@@ -254,27 +254,33 @@ function(add_prototype ARG_NAME)
     cmake_parse_arguments(ARG "COMMON" "" "DIRECTORIES;SOURCES" ${ARGN})
 
     # Get all source files
-    list(APPEND ARG_DIRECTORIES "${SGRENDER_DIR}/src/${ARG_NAME}")
+    list(APPEND ARG_DIRECTORIES "${SGRENDER_DIR}/Prototypes/${ARG_NAME}")
     set(SOURCES "")
     set(SHADERS "")
-    
+    set(SHADERHEADERS "")
+
     foreach(DIR ${ARG_DIRECTORIES})
         if(APPLE)
             file(GLOB GLOB_SOURCES ${DIR}/*.mm)
             list(APPEND SOURCES ${GLOB_SOURCES})
         endif()
-        file(GLOB GLOB_SOURCES ${DIR}/*.c ${DIR}/*.cpp ${DIR}/*.h ${DIR}/*.sc)
+        file(GLOB GLOB_SOURCES ${DIR}/*.c ${DIR}/*.cpp ${DIR}/*.h ${DIR}/*.hpp ${DIR}/*.sc ${DIR}/*.sh)
         list(APPEND SOURCES ${GLOB_SOURCES})
         file(GLOB GLOB_SHADERS ${DIR}/*.sc)
         list(APPEND SHADERS ${GLOB_SHADERS})
+		file(GLOB GLOB_SHADERHEADERS ${DIR}/*.sh)
+		list(APPEND SHADERHEADERS ${GLOB_SHADERHEADERS})
     endforeach()
+	
+	if(ARG_COMMON)
+		add_executable(prototype-${ARG_NAME} WIN32 ${SOURCES})
 
-    if(NOT ARG_COMMON)
+    else()
         if(NOT ANDROID)
             add_executable(prototype-${ARG_NAME} WIN32 ${SOURCES})
         endif()
         #target_link_libraries(prototype-${ARG_NAME} PUBLIC prototype-common)
-        configure_debugging(prototype-${ARG_NAME} WORKING_DIR ${SGRENDER_DIR}/src/runtime)
+        configure_debugging(prototype-${ARG_NAME} WORKING_DIR ${SGRENDER_DIR}/Prototypes/runtime)
         if(MSVC)
             set_target_properties(prototype-${ARG_NAME} PROPERTIES LINK_FLAGS "/ENTRY:\"mainCRTStartup\"")
         endif()
@@ -319,21 +325,30 @@ function(add_prototype ARG_NAME)
         foreach(SHADER ${SHADERS})
             add_bgfx_shader(${SHADER} ${ARG_NAME})
         endforeach()
-        source_group("Shader Files" FILES ${SHADERS})
+		
+        source_group("Shader Files" FILES ${SHADERS} ${SHADERHEADERS})
     endif()
 
-    set_target_properties(prototype-${ARG_NAME} PROPERTIES FOLDER "SGTestBed/src")
+    set_target_properties(prototype-${ARG_NAME} PROPERTIES FOLDER "SGTestBed/Prototypes")
 endfunction()
 
 if(BGFX_CUSTOM_TARGETS)
     add_custom_target(prototypes)
-    set_target_properties(prototypes PROPERTIES FOLDER "SGTestBed/src" )
+    set_target_properties(prototypes PROPERTIES FOLDER "SGTestBed/Prototypes" )
 endif()
+
+add_prototype(
+	common 
+	COMMON 
+	DIRECTORIES
+    ${SGRENDER_DIR}/Prototypes/common
+)
 
 if(SGTESTBED_BUILD_PROTOTYPES)
     # Add Prototypes
     set(SGTESTBED_PROTOTYPES 
         01-GoochHighlighted
+		02-Lights-Basic
     )
 
     foreach(PROTOTYPE ${SGTESTBED_PROTOTYPES})
@@ -341,9 +356,9 @@ if(SGTESTBED_BUILD_PROTOTYPES)
     endforeach()
 
     if(SGTESTBED_INSTALL_EXAMPLES)
-        install(DIRECTORY ${SGRENDER_DIR}/src/runtime/ DESTINATION src)
+        install(DIRECTORY ${SGRENDER_DIR}/Prototypes/runtime/ DESTINATION Prototypes)
         foreach(PROTOTYPE ${SGTESTBED_PROTOTYPES})
-            install(TARGETS prototype-${PROTOTYPE} DESTINATION src)
+            install(TARGETS prototype-${PROTOTYPE} DESTINATION Prototypes)
         endforeach()
     endif()
 endif()

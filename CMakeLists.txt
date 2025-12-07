@@ -27,7 +27,7 @@ set(BGFX_BUILD_EXAMPLE_COMMON ON)
 
 include(cmake/3rdparty/dear-imgui.cmake)
 # Adding folder Structure
-add_subdirectory(src)
+add_subdirectory(Prototypes)
 add_subdirectory(3rdParty/bgfx.cmake)
 
 
