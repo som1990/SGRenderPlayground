@@ -308,6 +308,7 @@ function(add_prototype ARG_NAME)
                 ${BGDIR}/bx/include
                 ${BGDIR}/bx/include/compat/msvc
                 ${BGDIR}/bimg/include 
+				${SGRENDER_DIR}/Includes/Shaders
     )
 
     #link_directories(${SGRENDER_DIR}/.build/3rdParty/bgfx.cmake/cmake/bgfx)
