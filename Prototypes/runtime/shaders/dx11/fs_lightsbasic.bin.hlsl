@@ -346,19 +346,19 @@ float3x3 mtxFromCols(float3 _0, float3 _1, float3 _2)
 {
 return transpose(float3x3(_0, _1, _2) );
 }
-uniform float4 u_viewRect;
-uniform float4 u_viewTexel;
-uniform float4x4 u_view;
-uniform float4x4 u_invView;
-uniform float4x4 u_proj;
-uniform float4x4 u_invProj;
-uniform float4x4 u_viewProj;
-uniform float4x4 u_invViewProj;
-uniform float4x4 u_model[32];
-uniform float4x4 u_modelView;
-uniform float4x4 u_invModelView;
-uniform float4x4 u_modelViewProj;
-uniform float4 u_alphaRef4;
+static float4 u_viewRect;
+static float4 u_viewTexel;
+static float4x4 u_view;
+static float4x4 u_invView;
+static float4x4 u_proj;
+static float4x4 u_invProj;
+static float4x4 u_viewProj;
+static float4x4 u_invViewProj;
+static float4x4 u_model[32];
+static float4x4 u_modelView;
+static float4x4 u_invModelView;
+static float4x4 u_modelViewProj;
+static float4 u_alphaRef4;
 float4 encodeRE8(float _r)
 {
 float exponent = ceil(log2(_r) );
@@ -693,47 +693,64 @@ float3 clipToWorld(float4x4 _invViewProj, float3 _clipPos)
 float4 wpos = mul(_invViewProj, float4(_clipPos, 1.0) );
 return wpos.xyz / wpos.w;
 }
-float3 brdf_ggx(float3 _normal, float3 _wi, float3 _wo, float3 _f0, float3 _albedo, float _roughness, float _metallic)
+uniform float4 u_params[4];
+float3 F_Schlick(in float3 f0, in float f90, in float u)
 {
-float3 h = normalize(_wi + _wo);
-float ndotl = max(dot(_normal, _wi), 0.0);
-float ndotv = max(dot(_normal, _wo), 0.0);
-float ndoth = max(dot(_normal, h), 0.0);
-float vdoth = max(dot(_wo, h), 0.0);
-float a = _roughness * _roughness;
-float a2 = a * a;
-float denom = (ndoth * ndoth) * (a2 - 1.0) + 1.0;
-float D = a2 / (3.14159265 * denom * denom + 1e-5);
-float k = (a + 1.0) * (a + 1.0) / 8.0;
-float G1o = ndotv / (ndotv * (1.0 - k) + k + 1e-5);
-float G1i = ndotl / (ndotl * (1.0 - k) + k + 1e-5);
-float G = G1o * G1i;
-float3 f0 = mix(float3(0.04, 0.04, 0.04), _f0, _metallic);
-float3 F = f0 + (float3(1.0, 1.0, 1.0) - f0) * pow(1.0 - vdoth, 5.0);
-float3 specular = (D * G * F) / (4.0 * ndotv * ndotl + 1e-5);
-float3 kD = (float3(1.0, 1.0, 1.0) - F) * (1.0 - _metallic);
-return kD * _albedo/ 3.14159265 + specular;
+return f0 + (f90 - f0) * pow(1.f - u, 5.f);
+}
+float D_GGX(float _NdotH, float _alpha)
+{
+float alpha2 = _alpha * _alpha;
+float f = (_NdotH * alpha2 - _NdotH)*_NdotH + 1.0;
+return alpha2 / (f*f);
+}
+float G_SmithGGXCorrelated(float _NdotL, float _NdotV, float _alphaG)
+{
+float alphaG2 = _alphaG * _alphaG;
+float Lambda_GGXV = _NdotL * sqrt((-_NdotV * alphaG2 + _NdotV)) * _NdotV + alphaG2;
+float Lambda_GGXL = _NdotV * sqrt((-_NdotL * alphaG2 + _NdotL)) * _NdotL + alphaG2;
+return 0.5f/ (Lambda_GGXL + Lambda_GGXV);
 }
 float3 light_point_attenuated(float3 _lightColor, float _radiusSquared, float _minRadius, float _maxRadius)
 {
 float dampening = max(0.0, 1.0 - ((_radiusSquared/(_maxRadius*_maxRadius))*(_radiusSquared/(_maxRadius*_maxRadius))));
 dampening = dampening * dampening;
-float intensity = 1.0/max(_minRadius*_minRadius, _radiusSquared);
+float intensity = 50.0 * 1.0/max(_minRadius*_minRadius, _radiusSquared);
 return _lightColor * intensity * dampening;
 }
-void main( float4 gl_FragCoord : SV_POSITION , float3 v_normal : normal , float3 v_pos : TEXCOORD1 , float3 v_view : TEXCOORD2 , out float4 bgfx_FragData0 : SV_TARGET0 )
+float Fr_DisneyDiffuse (float _NdotV, float _NdotL, float _LdotH, float _roughness )
+{
+float energyBias = mix(0, 0.5f, _roughness);
+float energyFactor = mix(1.0, 1.0/1.51, _roughness);
+float fd90 = energyBias + 2.0 * _LdotH * _LdotH * _roughness;
+float3 f0 = float3(1.0f, 1.0f, 1.0f);
+float lightScatter = F_Schlick(f0, fd90, _NdotL).r;
+float viewScatter = F_Schlick(f0, fd90, _NdotV).r;
+return lightScatter * viewScatter * energyFactor;
+}
+void main( float4 gl_FragCoord : SV_POSITION , float3 v_normal : normal , float3 v_view : TEXCOORD2 , float3 v_world : TEXCOORD1 , out float4 bgfx_FragData0 : SV_TARGET0 )
 {
 float4 bgfx_VoidFrag = vec4_splat(0.0);
 float3 normal = normalize(v_normal);
 float3 view = -normalize(v_view);
-float3 surfaceColor = float3(0.6,0.6,0.6);
-float3 f0_gold = float3(1.02, 0.782, 0.344);
-float3 lightPos = float3(0.0,2.0,10.0);
-float3 lightMinusPos = lightPos - v_pos.xyz;
+float3 surfaceColor = u_params[0].xyz;
+float3 lightPos = u_params[2].xyz;
+float3 lightMinusPos = lightPos - v_world.xyz;
 float3 lightDir = normalize(lightMinusPos);
-float3 lightColor = light_point_attenuated(float3(1.0,1.0,1.0), dot(lightMinusPos, lightMinusPos), 1.0, 50.0);
-float3 brdf = brdf_ggx(normal, lightDir, view, f0_gold, surfaceColor, 0.2, 0.5);
-float3 color = lightColor * brdf * max(dot(normal, lightDir), 0.0);
-bgfx_FragData0.xyz = pow(color, float3(1.0,1.0,1.0)*0.44);
+float3 lightColor = light_point_attenuated(u_params[3].xyz, dot(lightMinusPos, lightMinusPos), u_params[2].w, u_params[3].w);
+float NdotV = abs(dot(normal, view)) + 1e-5f;
+float3 H = normalize(view + lightDir);
+float LdotH = clamp(dot(lightDir, H), 0.f, 1.f);
+float NdotH = clamp(dot(normal, H), 0.f, 1.f);
+float NdotL = clamp(dot(normal, lightDir), 0.f, 1.f);
+float3 f0 = mix(float3(1.0,1.0,1.0), u_params[1].xyz, u_params[1].w);
+float f90 = clamp(50.0 * dot(u_params[1].xyz, float3(0.33,0.33,0.33)),0.0, 1.0);
+float3 F = F_Schlick(u_params[1].xyz, f90, LdotH);
+float G = G_SmithGGXCorrelated(NdotV, NdotL, u_params[0].w*u_params[0].w);
+float D = D_GGX(NdotH, u_params[0].w * u_params[0].w);
+float3 Fr = (D * G / 3.14159265) * F;
+float Fd = Fr_DisneyDiffuse(NdotV, NdotL, LdotH, u_params[0].w);
+float3 color = lightColor * Fr * Fd;
+bgfx_FragData0.xyz = pow(color, float3(1.0,1.0,1.0)*0.44) ;
 bgfx_FragData0.w = 1.0;
 }

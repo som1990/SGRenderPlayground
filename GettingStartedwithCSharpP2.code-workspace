@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "../Courses/CSharpLearningModules/GettingStartedwithCSharpP2"
+		},
+		{
+			"path": "../Courses/CSharpLearningModules/DiscoverInterfaces"
+		},
+		{
+			"path": "../Courses/CSharpLearningModules/LinqPlayground"
+		}
+	],
+	"settings": {}
+}

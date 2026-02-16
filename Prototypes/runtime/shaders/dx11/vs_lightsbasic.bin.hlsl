@@ -5,8 +5,8 @@ struct Output
 {
 float4 gl_Position : SV_POSITION;
 float3 v_normal : normal;
-float3 v_pos : TEXCOORD1;
 float3 v_view : TEXCOORD2;
+float3 v_world : TEXCOORD1;
 };
 float intBitsToFloat(int _x) { return asfloat(_x); }
 float2 intBitsToFloat(uint2 _x) { return asfloat(_x); }
@@ -355,16 +355,16 @@ return transpose(float3x3(_0, _1, _2) );
 }
 static float4 u_viewRect;
 static float4 u_viewTexel;
-static float4x4 u_view;
+uniform float4x4 u_view;
 static float4x4 u_invView;
 static float4x4 u_proj;
 static float4x4 u_invProj;
-static float4x4 u_viewProj;
+uniform float4x4 u_viewProj;
 static float4x4 u_invViewProj;
-static float4x4 u_model[32];
-uniform float4x4 u_modelView;
+uniform float4x4 u_model[32];
+static float4x4 u_modelView;
 static float4x4 u_invModelView;
-uniform float4x4 u_modelViewProj;
+static float4x4 u_modelViewProj;
 static float4 u_alphaRef4;
 float4 encodeRE8(float _r)
 {
@@ -700,12 +700,13 @@ float3 clipToWorld(float4x4 _invViewProj, float3 _clipPos)
 float4 wpos = mul(_invViewProj, float4(_clipPos, 1.0) );
 return wpos.xyz / wpos.w;
 }
-Output main( float3 a_normal : NORMAL , float3 a_position : POSITION) { Output _varying_; _varying_.v_normal = float3(0.0,0.0,1.0);; _varying_.v_pos = float3(0.0,0.0,0.0);; _varying_.v_view = float3(0.0,0.0,0.0);;
+Output main( float3 a_normal : NORMAL , float3 a_position : POSITION) { Output _varying_; _varying_.v_normal = float3(0.0,0.0,1.0);; _varying_.v_view = float3(0.0,0.0,0.0);; _varying_.v_world = float3(0.0,0.0,0.0);;
 {
-_varying_.gl_Position = mul(u_modelViewProj, float4(a_position,1.0));
-_varying_.v_pos = _varying_.gl_Position.xyz;
+float4 world = mul(u_model[0], float4(a_position, 1.0));
+_varying_.gl_Position = mul(u_viewProj, world);
+_varying_.v_world = world.xyz;
 float3 normal = a_normal.xyz*2.0 - 1.0;
-_varying_.v_normal = mul(u_modelView, float4(normal, 0.0)).xyz;
-_varying_.v_view = mul(u_modelView, float4(a_position,1.0)).xyz;
+_varying_.v_normal = mul(u_model[0], float4(normal, 0.0)).xyz;
+_varying_.v_view = mul(u_view, world).xyz;
 } return _varying_;
 }
